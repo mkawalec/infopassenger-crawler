@@ -4,7 +4,6 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.List as L
 import Data.List.Split
 import Data.Time.Format (readTime, defaultTimeLocale)
-import qualified Debug.Trace as TR
 import Data.Maybe
 import qualified Data.Map as M
 import qualified Data.Either as E

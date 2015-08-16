@@ -22,4 +22,4 @@ isNotEmpty :: String -> Bool
 isNotEmpty col = if length common == 0 then True else False
     where common = L.intersect col "\r\n"
 
-selectNth selector idx = (css selector) >>. (\x -> if idx >= L.length x then [] else DT.trace (show . L.length $ x) $ [x !! idx])
+selectNth selector idx = (css selector) >>. (\x -> if idx >= L.length x then [] else [x !! idx])

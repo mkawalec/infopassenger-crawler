@@ -11,7 +11,7 @@ data Connection = Connection {
 data Station = Station {
   stationId :: Integer
 , stationName :: String
-, connections :: [Connection]
+, connections :: ![Connection]
 } deriving (Show, Ord, Eq)
 
 data RequestType = StationRequest | TrainRequest
