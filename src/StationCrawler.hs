@@ -27,7 +27,6 @@ data StationState = StationState {
 , queuedTrains :: M.Map TrainId Bool
 , trainsLeftToVisit :: [TrainId]
 , stationsLeftToVisit :: [StationId]
-, results :: [Maybe Station]
 }
 
 data UpdateType = TrainUpdate | StationUpdate
@@ -38,7 +37,6 @@ instance Default StationState where
   , queuedTrains = M.empty
   , trainsLeftToVisit = []
   , stationsLeftToVisit = []
-  , results = []
   }
 
 makeReq manager request = do
@@ -135,7 +133,8 @@ reportResults :: TChan Station -> IO ()
 reportResults c = forever $
   atomically (readTChan c) >>= putStrLn . show >> hFlush stdout
 
--- crawl stations starting at a given StationId (preferably a big station)
+-- crawl stations starting at a given StationId 
+-- (preferably a big station, we don't want closed loops)
 crawlStations :: StationId -> IO [Station]
 crawlStations stationId = withSocketsDo $ do
   let k = 2

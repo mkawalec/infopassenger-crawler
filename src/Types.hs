@@ -3,9 +3,9 @@ module Types where
 import Data.Time.LocalTime (LocalTime)
 
 data Connection = Connection {
-  trainId :: Integer
-, arrivalTime :: LocalTime
-, delayTime :: Integer
+  trainId :: !Integer
+, arrivalTime :: !LocalTime
+, delayTime :: !Integer
 } deriving (Show, Ord, Eq)
 
 data Station = Station {
