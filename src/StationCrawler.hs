@@ -139,7 +139,7 @@ reportResults c = forever $
 crawlStations :: StationId -> IO [Station]
 crawlStations stationId = withSocketsDo $ do
   let k = 2
-  state <- newTVarIO $ (def :: StationState ) { stationsLeftToVisit = [stationId] }
+  state <- newTVarIO $ def { stationsLeftToVisit = [stationId] }
   manager <- newManager tlsManagerSettings
   results <- newTChanIO
 
