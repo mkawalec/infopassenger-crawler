@@ -18,7 +18,7 @@ import qualified Debug.Trace as DT
 
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
-import Control.Exception (finally)
+import Control.Exception (finally, catch, SomeException)
 import Control.Monad.State
 import System.IO (hFlush, hPutStrLn, stdout)
 
@@ -82,17 +82,24 @@ getAccessor :: UpdateType -> (StationState -> [Integer])
 getAccessor TrainUpdate = trainsLeftToVisit
 getAccessor StationUpdate = stationsLeftToVisit
 
-getId :: UpdateType -> TVar StationState -> STM Integer
-getId updateType stateVar = do
-  let accessor = getAccessor updateType
+getUpdateType :: StationState -> UpdateType
+getUpdateType state = case L.length . stationsLeftToVisit $ state of
+  0 -> TrainUpdate
+  otherwise -> StationUpdate
+
+getId :: TVar StationState -> STM (UpdateType, Integer)
+getId stateVar = do
   state <- readTVar stateVar
-  when ((L.length . accessor $ state) == 0) $
+  when ((L.length . stationsLeftToVisit $ state) == 0 && 
+       ((L.length . trainsLeftToVisit $ state) == 0)) $
     retry
 
+  let updateType = getUpdateType state
+  let accessor = getAccessor updateType
   let id = head . accessor $ state
   let stateWithoutId = getStateWithoutId updateType state
   writeTVar stateVar stateWithoutId
-  return id
+  return (updateType, id)
  
 updateIds :: TVar StationState -> (StationState -> Integer -> StationState) -> [TrainId] -> STM ()
 updateIds stateVar updateFunc ids = do
@@ -100,34 +107,47 @@ updateIds stateVar updateFunc ids = do
   let stateWithIds = foldl updateFunc state ids
   writeTVar stateVar stateWithIds
 
-trainWorker :: Manager -> TVar StationState -> IO ()
-trainWorker manager stateVar = do
-  -- Get the train id
-  trainId <- atomically $ getId TrainUpdate stateVar
+trainWorker :: Manager -> TVar StationState -> Integer -> IO ()
+trainWorker manager stateVar trainId = do
+  putStrLn "train worker" >> hFlush stdout
   -- Fetch and parse the page
   trainPage <- getRequest TrainRequest trainId >>= (makeReq manager)
   stationIds <- parseTrain trainPage
 
   -- Update the ids
   atomically $ updateIds stateVar queueStations stationIds
-  trainWorker manager stateVar
 
-stationWorker :: Manager -> TVar StationState -> TChan Station -> IO ()
-stationWorker manager stateVar results = do
-  -- Get the station Id
-  stationId <- atomically $ getId StationUpdate stateVar
+stationWorker :: Manager -> TVar StationState -> TChan Station -> Integer -> IO ()
+stationWorker manager stateVar results stationId = do
+  putStrLn "worker" >> hFlush stdout
   -- Fetch the page
   stationPage <- getRequest StationRequest stationId >>= (makeReq manager)
+  putStrLn "worker2" >> hFlush stdout
   -- Parse the page
+  putStrLn "worker3" >> hFlush stdout
   parsedStation <- parseStationPage stationId stationPage
+  putStrLn "worker4" >> hFlush stdout
   -- Extract train ids from the parsed page
   trainIds <- getTrainIds parsedStation
+  putStrLn "worker5" >> hFlush stdout
 
   -- Update train ids left to fetch
+  putStrLn "getstation" >> hFlush stdout
   atomically $ updateIds stateVar queueTrains trainIds
   -- Write the results into results channel
-  when (isJust parsedStation) $ atomically $ writeTChan results (fromJust parsedStation)
-  stationWorker manager stateVar results
+  when (isJust parsedStation) $ atomically $ writeTChan results (fromJust $! parsedStation)
+
+generalWorker :: Manager -> TVar StationState -> TChan Station -> IO ()
+generalWorker manager stateVar results = do
+  putStrLn "before getId" >> hFlush stdout
+  (updateType, id) <- atomically $ getId stateVar
+  putStrLn ("inloop " ++ show id) >> hFlush stdout
+  case updateType of
+    TrainUpdate -> trainWorker manager stateVar id
+    StationUpdate -> stationWorker manager stateVar results id
+
+  putStrLn "spawning new" >> hFlush stdout
+  generalWorker manager stateVar results
 
 reportResults :: TChan Station -> IO ()
 reportResults c = forever $
@@ -137,19 +157,18 @@ reportResults c = forever $
 -- (preferably a big station, we don't want closed loops)
 crawlStations :: StationId -> IO [Station]
 crawlStations stationId = withSocketsDo $ do
-  let k = 2
+  let k = 50
   state <- newTVarIO $ def { stationsLeftToVisit = [stationId] }
   manager <- newManager tlsManagerSettings
   results <- newTChanIO
 
-  stationWorkers <- newTVarIO k
-  trainWorkers <- newTVarIO k
-  forkIO $ reportResults results
+  workers <- newTVarIO k
+  --forkIO $ reportResults results
 
-  forkTimes k stationWorkers (stationWorker manager state results)
-  forkTimes k trainWorkers (trainWorker manager state)
-  waitFor stationWorkers
+  forkTimes k workers (generalWorker manager state results)
+  waitFor k workers
 
+  DT.trace "died" $ hFlush stdout 
   return []
 
 modifyTVar_ :: TVar a -> (a -> a) -> STM ()
@@ -157,10 +176,10 @@ modifyTVar_ tv f = readTVar tv >>= writeTVar tv . f
 
 forkTimes :: Int -> TVar Int -> IO () -> IO ()
 forkTimes k alive act = replicateM_ k . forkIO $
-  act `finally` (atomically $ modifyTVar_ alive (subtract 1))
+  act `finally` (putStrLn "dupa") --(DT.trace "dying" $ atomically $ modifyTVar_ alive (subtract 1))
   
-waitFor :: TVar Int -> IO ()
-waitFor alive = atomically $ do
+waitFor :: Int -> TVar Int -> IO ()
+waitFor maxCount alive = atomically $ do
   count <- readTVar alive
   check (count == 0)
 
