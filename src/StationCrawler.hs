@@ -87,23 +87,44 @@ getUpdateType state = case L.length . stationsLeftToVisit $ state of
   0 -> TrainUpdate
   otherwise -> StationUpdate
 
-getId :: TVar StationState -> TVar Int -> IO (UpdateType, Integer)
-getId stateVar waitingCount = do
+retryOrQuit :: 
+  StationState -> 
+  TVar StationState ->
+  Int -> 
+  TVar Int -> 
+  Int ->
+  (TVar StationState -> TVar Int -> STM (Maybe (UpdateType, Integer))) ->
+  STM (Maybe (UpdateType, Integer))
+retryOrQuit state stateVar waitCount waitVar workerCount fetchId
+  | nothingLeft && waitCount == workerCount = do modifyTVar waitVar (+1)
+                                                 return Nothing
+  | nothingLeft = retry
+  | otherwise = fetchId stateVar waitVar
+    
+  where stationsLeft = L.length . stationsLeftToVisit $ state
+        trainsLeft = L.length . trainsLeftToVisit $ state
+        nothingLeft = stationsLeft == 0 && trainsLeft == 0
+
+retrieveId :: TVar StationState -> TVar Int -> STM (Maybe (UpdateType, Integer))
+retrieveId stateVar waitingCount = do
+  state <- readTVar stateVar
+  let updateType = getUpdateType state
+  let accessor = getAccessor updateType
+  let id = head . accessor $ state
+  let stateWithoutId = getStateWithoutId updateType state
+  writeTVar stateVar stateWithoutId
+  modifyTVar_ waitingCount (subtract 1)
+  return $ Just (updateType, id)
+
+
+getId :: TVar StationState -> TVar Int -> Int -> IO (Maybe (UpdateType, Integer))
+getId stateVar waitingCount workerCount = do
   atomically $ modifyTVar_ waitingCount (+ 1)
 
   atomically $ do
     state <- readTVar stateVar
-    when ((L.length . stationsLeftToVisit $ state) == 0 && 
-        ((L.length . trainsLeftToVisit $ state) == 0)) $
-      retry
-
-    let updateType = getUpdateType state
-    let accessor = getAccessor updateType
-    let id = head . accessor $ state
-    let stateWithoutId = getStateWithoutId updateType state
-    writeTVar stateVar stateWithoutId
-    modifyTVar_ waitingCount (subtract 1)
-    return (updateType, id)
+    waitCount <- readTVar waitingCount
+    retryOrQuit state stateVar waitCount waitingCount workerCount retrieveId
  
 updateIds :: TVar StationState -> (StationState -> Integer -> StationState) -> [TrainId] -> STM ()
 updateIds stateVar updateFunc ids = do
@@ -113,7 +134,6 @@ updateIds stateVar updateFunc ids = do
 
 trainWorker :: Manager -> TVar StationState -> Integer -> IO ()
 trainWorker manager stateVar trainId = do
-  putStrLn "train worker" >> hFlush stdout
   -- Fetch and parse the page
   trainPage <- getRequest TrainRequest trainId >>= (makeReq manager)
   stationIds <- parseTrain trainPage
@@ -123,35 +143,33 @@ trainWorker manager stateVar trainId = do
 
 stationWorker :: Manager -> TVar StationState -> TChan Station -> Integer -> IO ()
 stationWorker manager stateVar results stationId = do
-  putStrLn "worker" >> hFlush stdout
   -- Fetch the page
   stationPage <- getRequest StationRequest stationId >>= (makeReq manager)
-  putStrLn "worker2" >> hFlush stdout
   -- Parse the page
-  putStrLn "worker3" >> hFlush stdout
   parsedStation <- parseStationPage stationId stationPage
-  putStrLn "worker4" >> hFlush stdout
   -- Extract train ids from the parsed page
   trainIds <- getTrainIds parsedStation
-  putStrLn "worker5" >> hFlush stdout
 
   -- Update train ids left to fetch
-  putStrLn "getstation" >> hFlush stdout
   atomically $ updateIds stateVar queueTrains trainIds
   -- Write the results into results channel
   when (isJust parsedStation) $ atomically $ writeTChan results (fromJust $! parsedStation)
 
-generalWorker :: Manager -> TVar StationState -> TChan Station -> TVar Int -> IO ()
-generalWorker manager stateVar results waitingCount = do
-  putStrLn "before getId" >> hFlush stdout
-  (updateType, id) <- getId stateVar waitingCount
-  putStrLn ("inloop " ++ show id) >> hFlush stdout
-  case updateType of
-    TrainUpdate -> trainWorker manager stateVar id
-    StationUpdate -> stationWorker manager stateVar results id
+generalWorker :: Manager -> 
+  TVar StationState -> 
+  TChan Station -> 
+  TVar Int ->
+  Int ->
+  IO ()
+generalWorker manager stateVar results waitingCount workerCount = do
+  maybeId <- getId stateVar waitingCount workerCount
+  case maybeId of
+    Just (updateType, id) -> case updateType of
+      TrainUpdate -> trainWorker manager stateVar id 
+      StationUpdate -> stationWorker manager stateVar results id 
+    Nothing -> return ()
 
-  putStrLn "spawning new" >> hFlush stdout
-  generalWorker manager stateVar results waitingCount
+  when (isJust maybeId) $ generalWorker manager stateVar results waitingCount workerCount
 
 reportResults :: TChan Station -> IO ()
 reportResults c = forever $
@@ -169,7 +187,7 @@ crawlStations stationId = withSocketsDo $ do
   workers <- newTVarIO 0
   --forkIO $ reportResults results
 
-  forkTimes k (generalWorker manager state results workers)
+  forkTimes k (generalWorker manager state results workers k)
   waitFor k workers
 
   newVar <- atomically $ readTVar workers
