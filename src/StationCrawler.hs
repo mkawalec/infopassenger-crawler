@@ -16,10 +16,11 @@ import Data.List
 import Data.Maybe
 import qualified Debug.Trace as DT
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, killThread, ThreadId)
 import Control.Concurrent.STM
 import Control.Exception (finally, catch, SomeException)
 import Control.Monad.State
+import Control.Monad (mapM_)
 import System.IO (hFlush, hPutStrLn, stdout)
 
 data StationState = StationState {
@@ -113,13 +114,13 @@ retrieveId stateVar waitingCount = do
   let id = head . accessor $ state
   let stateWithoutId = getStateWithoutId updateType state
   writeTVar stateVar stateWithoutId
-  modifyTVar_ waitingCount (subtract 1)
+  modifyTVar' waitingCount (subtract 1)
   return $ Just (updateType, id)
 
 
 getId :: TVar StationState -> TVar Int -> Int -> IO (Maybe (UpdateType, Integer))
 getId stateVar waitingCount workerCount = do
-  atomically $ modifyTVar_ waitingCount (+ 1)
+  atomically $ modifyTVar' waitingCount (+ 1)
 
   atomically $ do
     state <- readTVar stateVar
@@ -171,39 +172,39 @@ generalWorker manager stateVar results waitingCount workerCount = do
 
   when (isJust maybeId) $ generalWorker manager stateVar results waitingCount workerCount
 
-reportResults :: TChan Station -> IO ()
-reportResults c = forever $
-  atomically (readTChan c) >>= putStrLn . show >> hFlush stdout
+reportResults :: TChan Station -> TVar [Station] -> IO ()
+reportResults c r = forever $ atomically $ do
+  result <- readTChan c
+  results <- readTVar r
+  writeTVar r $ result:results
 
 -- crawl stations starting at a given StationId 
 -- (preferably a big station, we don't want closed loops)
 crawlStations :: StationId -> IO [Station]
 crawlStations stationId = withSocketsDo $ do
-  let k = 50
+  let k = 5
   state <- newTVarIO $ def { stationsLeftToVisit = [stationId] }
-  manager <- newManager tlsManagerSettings
-  results <- newTChanIO
+  resultsVar <- newTVarIO []
+  resultsChannel <- newTChanIO
 
   workers <- newTVarIO 0
-  --forkIO $ reportResults results
+  reporterId <- forkIO $ reportResults resultsChannel resultsVar
+  manager <- newManager tlsManagerSettings
 
-  forkTimes k (generalWorker manager state results workers k)
+  workerIds <- forkTimes k (generalWorker manager state resultsChannel workers k)
   waitFor k workers
+  killWorkers $ reporterId:workerIds
 
-  newVar <- atomically $ readTVar workers
-  DT.trace ("died " ++ show newVar) $ hFlush stdout 
-  return []
+  (atomically $ readTVar resultsVar) >>= return
 
-modifyTVar_ :: TVar a -> (a -> a) -> STM ()
-modifyTVar_ tv f = readTVar tv >>= writeTVar tv . f
-
-forkTimes :: Int -> IO () -> IO ()
-forkTimes k act = replicateM_ k . forkIO $ act
+forkTimes :: Int -> IO () -> IO [ThreadId]
+forkTimes k act = replicateM k . forkIO $ act
   
 waitFor :: Int -> TVar Int -> IO ()
 waitFor maxCount alive = atomically $ do
   count <- readTVar alive
   check (count == maxCount + 1)
 
-  
+killWorkers :: [ThreadId] -> IO ()
+killWorkers = mapM_ killThread
 
