@@ -1,18 +1,19 @@
 module Types where
 
 import Data.Time.LocalTime (LocalTime)
+import Data.Time.Format (readTime, defaultTimeLocale)
 
 data Connection = Connection {
   trainId :: !Integer
 , arrivalTime :: !LocalTime
 , delayTime :: !Integer
-} deriving (Show, Ord, Eq)
+} deriving (Show, Read, Ord, Eq)
 
 data Station = Station {
   stationId :: Integer
 , stationName :: String
 , connections :: ![Connection]
-} deriving (Show, Ord, Eq)
+} deriving (Show, Read, Ord, Eq)
 
 data RequestType = StationRequest | TrainRequest
   deriving (Show, Eq)
