@@ -8,7 +8,7 @@ type ConnState = M.Map Integer Connection
 
 mergeConnection :: ConnState -> Connection -> Connection
 mergeConnection connCache connection = connection { delayTime = maximum delays }
-  where oldConnection = M.lookup (trainId connection) connCache
+  where oldConnection = M.lookup (connId connection) connCache
         oldDelay = case oldConnection of
           Just conn -> delayTime conn
           Nothing -> 0
@@ -22,7 +22,7 @@ mergeConnections station connCache = map (mergeConnection connCache) conns
 reduceStation :: StationState -> Station -> StationState
 reduceStation state station = M.insert (stationId station) newStationEntry state
   where currentStation = M.lookup (stationId station) state
-        unpackConnections = (\station -> map (\conn -> (trainId conn, conn)) (connections station))
+        unpackConnections = (\station -> map (\conn -> (connId conn, conn)) (connections station))
         connCache = case currentStation of
           Just currStation -> M.fromList $ unpackConnections currStation
           Nothing -> M.empty

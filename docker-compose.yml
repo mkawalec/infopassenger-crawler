@@ -1,0 +1,15 @@
+pgdata:
+  image: busybox:latest
+  volumes:
+    - /var/lib/postgresql/data
+
+postgres:
+  image: postgres:9.5
+  ports:
+    - "2345:5432"
+  environment:
+    POSTGRES_PASSWORD: info
+    POSTGRES_USER: info
+    POSTGRES_DATABASE: info
+  volumes_from:
+    - pgdata

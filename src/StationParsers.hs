@@ -3,7 +3,7 @@ module StationParsers where
 import qualified Data.Text.Lazy as TL
 import qualified Data.List as L
 import Data.List.Split
-import Data.Time.Format (readTime, defaultTimeLocale)
+import Data.Time.Format (parseTimeM, defaultTimeLocale)
 import Data.Maybe
 import qualified Data.Map as M
 import qualified Data.Either as E
@@ -19,14 +19,14 @@ import Text.HandsomeSoup
 import Types
 import ParseUtils
 
-
-
 genConnection :: [String] -> [String] -> Maybe Connection
-genConnection (trainLink:_) (reverse -> (delay:arrivalHour:relation:arrivalDate:_)) = 
-    Just $ Connection trainIdVal connDate delayAmount
-        where delayAmount = read . head . (splitOn " ") $ delay
-              connDate = readTime defaultTimeLocale "%F %H:%M" (arrivalDate ++ " " ++ arrivalHour)
-              trainIdVal = extractId [trainLink]
+genConnection (trainLink:_) cols = 
+    Just $ Connection connId trainId connDate delayAmount
+        where (delay:arrivalHour:relation:arrivalDate:_) = reverse cols
+              delayAmount = read . head . (splitOn " ") $ delay
+              connDate = parseTimeM True defaultTimeLocale "%F %H:%M" (arrivalDate ++ " " ++ arrivalHour)
+              connId = extractId [trainLink]
+              trainId = SU.strip . head $ cols
 genConnection _ _ = Nothing
 
 getConnections' doc = doc 

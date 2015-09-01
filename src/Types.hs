@@ -4,8 +4,9 @@ import Data.Time.LocalTime (LocalTime)
 import Data.Time.Format (readTime, defaultTimeLocale)
 
 data Connection = Connection {
-  trainId :: !Integer
-, arrivalTime :: !LocalTime
+  connId :: !Integer
+, trainId :: !String
+, arrivalTime :: !(Maybe LocalTime)
 , delayTime :: !Integer
 } deriving (Show, Read, Ord, Eq)
 

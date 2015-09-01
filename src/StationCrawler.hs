@@ -8,6 +8,7 @@ import TrainParsers (parseTrain)
 import Network.HTTP.Conduit
 import Network (withSocketsDo)
 import Text.XML.HXT.Core hiding (when)
+import Text.XML.HXT.TagSoup
 import qualified Data.Map.Strict as M
 import qualified Data.List as L
 import Data.Default
@@ -42,7 +43,7 @@ instance Default StationState where
 
 makeReq manager request = do
   response <- httpLbs request manager
-  return $ readString [withParseHTML yes, withWarnings no] (parseResponse response)
+  return $ readString [withParseHTML yes, withWarnings no, withTagSoup] (parseResponse response)
   
 queueTrains :: StationState -> TrainId -> StationState
 queueTrains state trainId = if not . M.member trainId $ visited
@@ -70,7 +71,7 @@ queueStations state stationId = if not . M.member stationId $ visited
 getTrainIds :: Maybe Station -> IO [Integer]
 getTrainIds wrappedStation = case wrappedStation of 
   Nothing -> return []
-  Just station -> return $ map trainId (connections station)
+  Just station -> return $ map connId (connections station)
 
 getStateWithoutId :: UpdateType -> StationState -> StationState
 getStateWithoutId updateType state = case updateType of
