@@ -16,3 +16,4 @@ cabal.sandbox.config
 .stack-work/
 
 .*.sw*
+station-dump
