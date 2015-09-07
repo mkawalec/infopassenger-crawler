@@ -10,20 +10,20 @@ queueTrains state trainId = if not . M.member trainId $ visited
   then
     state { 
       trainsLeftToVisit = trainId : (trainsLeftToVisit state) 
-    , queuedTrains = M.insert trainId True visited
+    , visitedTrains = M.insert trainId True visited
     }
   else
     state    
-  where visited = queuedTrains state
+  where visited = visitedTrains state
 
 queueStations :: StationState -> StationId -> StationState
 queueStations state stationId = if not . M.member stationId $ visited
   then
     state { 
       stationsLeftToVisit = stationId : (stationsLeftToVisit state)
-    , queuedStations = M.insert stationId True visited
+    , visitedStations = M.insert stationId True visited
     }
   else
     state
-  where visited = queuedStations state
+  where visited = visitedStations state
 
