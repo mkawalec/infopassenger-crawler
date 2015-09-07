@@ -32,12 +32,12 @@ crawlStations stationId = withSocketsDo $ do
   resultsVar <- newTVarIO []
   resultsChannel <- newTChanIO
 
-  workers <- newTVarIO 0
+  activeWorkers <- newTVarIO 0
   reporterId <- forkIO $ reportResults resultsChannel resultsVar
   manager <- newManager tlsManagerSettings
 
-  workerIds <- forkTimes k (generalWorker manager state resultsChannel workers k)
-  waitFor k workers
+  workerIds <- forkTimes k (generalWorker manager state resultsChannel activeWorkers k)
+  waitFor k activeWorkers
   killWorkers $ reporterId:workerIds
 
   atomically $ readTVar resultsVar

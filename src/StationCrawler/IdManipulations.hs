@@ -48,9 +48,9 @@ getUpdateType state = case L.length . stationsLeftToVisit $ state of
 retrieveId :: TVar StationState -> TVar Int -> STM (Maybe (UpdateType, Integer))
 retrieveId stateVar waitingCount = do
   state <- readTVar stateVar
-  let updateType = getUpdateType state
-  let accessor = getAccessor updateType
-  let id = head . accessor $ state
+  let updateType     = getUpdateType state
+  let accessor       = getAccessor updateType
+  let id             = head . accessor $ state
   let stateWithoutId = getStateWithoutId updateType state
   writeTVar stateVar stateWithoutId
   modifyTVar' waitingCount (subtract 1)
