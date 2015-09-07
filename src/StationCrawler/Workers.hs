@@ -16,8 +16,8 @@ import Control.Concurrent.STM
 import Control.Monad.State
 
 makeReq manager request = do
-  response <- httpLbs request manager
-  return $ readString [withParseHTML yes, withWarnings no, withTagSoup] (parseResponse response)
+  response <- httpLbs request manager >>= return . parseResponse
+  return $ readString [withParseHTML yes, withWarnings no, withTagSoup] response
 
 getTrainIds :: Maybe Station -> IO [Integer]
 getTrainIds wrappedStation = case wrappedStation of 
@@ -47,6 +47,7 @@ stationWorker manager stateVar results stationId = do
   -- Write the results into results channel
   when (isJust parsedStation) $ atomically $ writeTChan results (fromJust $! parsedStation)
 
+-- A worker that can either crawl a station or a train, depending on need
 generalWorker :: Manager -> 
   TVar StationState -> 
   TChan Station -> 
