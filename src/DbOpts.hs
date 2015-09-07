@@ -14,8 +14,8 @@ import DbOpts.Types
 import DbOpts.ConnToDb
 
 connectionData = defaultConnectInfo {
-  connectPort = 2345
-, connectUser = "info"
+  connectPort     = 2345
+, connectUser     = "info"
 , connectDatabase = "info"
 , connectPassword = "info"
 }
