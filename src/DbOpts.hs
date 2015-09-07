@@ -23,7 +23,9 @@ connectionData = defaultConnectInfo {
 persistDelays :: StationCache -> StationCache -> IO ()
 persistDelays oldState newState = do
   connection <- connect connectionData
+
   -- Insert new stations and connections
   stationIdCache <- addStations connection $ getAddedStations oldState newState
+
   let updatedConns = getUpdatedConnections stationIdCache $ getCommonStations oldState newState
   updateConnections connection stationIdCache updatedConns >> return ()
