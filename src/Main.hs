@@ -12,6 +12,7 @@ import Control.Monad
 import Turtle.Prelude (testfile)
 import Control.Concurrent (threadDelay)
 import MergeStates
+import Data.Time.Clock
 
 createState :: [Station] -> StationCache
 createState stations = M.fromList preprocessed
@@ -20,8 +21,11 @@ createState stations = M.fromList preprocessed
 
 queryStations :: StationCache -> IO ()
 queryStations previousState = do
+  startTime <- getCurrentTime
   stations <- crawlStations 80416
   putStrLn $ "we have " ++ (show . L.length $ stations) ++ " stations"
+  endTime <- getCurrentTime
+  putStrLn $ "crawl took " ++ (show $ diffUTCTime endTime startTime)
 
   let currentState = mergeStates previousState $ createState stations
   persistDelays previousState currentState

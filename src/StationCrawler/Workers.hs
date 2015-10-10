@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module StationCrawler.Workers (generalWorker) where
 
 import StationCrawler.Types
@@ -7,6 +8,7 @@ import Types
 import Fetchers (getRequest, parseResponse)
 import TrainParsers (parseTrain)
 import StationParsers (parseStationPage)
+import Data.Text.Lazy.Encoding (decodeUtf8)
 
 import Data.Maybe
 import Network.HTTP.Conduit
@@ -14,10 +16,22 @@ import Text.XML.HXT.Core hiding (when)
 import Text.XML.HXT.TagSoup
 import Control.Concurrent.STM
 import Control.Monad.State
+import qualified Control.Exception as X
+import qualified Debug.Trace as DT
+import qualified Data.ByteString.Lazy as BL
+
+import Text.XML.Cursor (fromDocument, attribute)
+import Text.HTML.DOM (parseLBS)
+
+performReq request manager = httpLbs request manager `X.catch` (handleConnError request manager)
+
+
+handleConnError :: Request -> Manager -> X.SomeException -> IO (Response BL.ByteString)
+handleConnError request manager _ = DT.trace "exception" $ performReq request manager
 
 makeReq manager request = do
-  response <- httpLbs request manager >>= return . parseResponse
-  return $ readString [withParseHTML yes, withWarnings no, withTagSoup] response
+  response <- performReq request manager
+  return . fromDocument . parseLBS . responseBody $ response
 
 getTrainIds :: Maybe Station -> IO [Integer]
 getTrainIds wrappedStation = case wrappedStation of 
@@ -27,8 +41,8 @@ getTrainIds wrappedStation = case wrappedStation of
 trainWorker :: Manager -> TVar StationState -> Integer -> IO ()
 trainWorker manager stateVar trainId = do
   -- Fetch and parse the page
-  trainPage <- getRequest TrainRequest trainId >>= (makeReq manager)
-  stationIds <- parseTrain trainPage
+  trainResp <- getRequest TrainRequest trainId >>= makeReq manager
+  let stationIds = parseTrain trainResp
 
   -- Update the ids
   atomically $ updateIds stateVar queueStations stationIds
@@ -36,9 +50,9 @@ trainWorker manager stateVar trainId = do
 stationWorker :: Manager -> TVar StationState -> TChan Station -> Integer -> IO ()
 stationWorker manager stateVar results stationId = do
   -- Fetch the page
-  stationPage <- getRequest StationRequest stationId >>= (makeReq manager)
+  stationResp <- getRequest StationRequest stationId >>= makeReq manager
   -- Parse the page
-  parsedStation <- parseStationPage stationId stationPage
+  let parsedStation = parseStationPage stationId stationResp
   -- Extract train ids from the parsed page
   trainIds <- getTrainIds parsedStation
 

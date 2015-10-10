@@ -8,12 +8,14 @@ import Text.XML.HXT.Core
 import Text.HandsomeSoup
 import Data.Maybe
 import qualified Debug.Trace as DT
+import Data.Text.Encoding (encodeUtf8)
+import Data.Text (Text)
 
 import Types
 
-extractId :: [String] -> TrainId
-extractId (queryString:_) = read . BC.unpack . fromJust $ param
-  where parsed = U.parseQuery . BC.pack $ queryString
+extractId :: Text -> TrainId
+extractId queryString = read . BC.unpack . fromJust $ param
+  where parsed = U.parseQuery . encodeUtf8 $ queryString
         mappedParams = M.fromList parsed
         param = mappedParams M.! "id"
         

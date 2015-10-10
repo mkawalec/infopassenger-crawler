@@ -27,7 +27,7 @@ reportResults c r = forever $ atomically $ do
 -- (preferably a big station, we don't want closed loops)
 crawlStations :: StationId -> IO [Station]
 crawlStations stationId = withSocketsDo $ do
-  let k = 7
+  let k = 5
   state <- newTVarIO $ def { stationsLeftToVisit = [stationId] }
   resultsVar <- newTVarIO []
   resultsChannel <- newTChanIO
