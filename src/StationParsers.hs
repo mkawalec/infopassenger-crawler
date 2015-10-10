@@ -10,11 +10,6 @@ import System.IO.Unsafe
 import qualified Debug.Trace as DT
 import qualified Data.ByteString.Lazy as BL
 
--- HTML parsing
-import Text.XML.HXT.Core
-import Data.Tree.NTree.TypeDefs
-import Text.HandsomeSoup
-
 import Types
 import ParseUtils
 

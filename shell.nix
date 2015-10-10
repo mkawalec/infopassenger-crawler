@@ -5,10 +5,9 @@ let
   inherit (nixpkgs) pkgs;
 
   f = { mkDerivation, base, bytestring, containers, data-default
-      , dom-selector, HandsomeSoup, html-conduit, http-conduit
-      , http-types, hxt, hxt-tagsoup, MissingH, mtl, network, old-locale
-      , parsec, postgresql-simple, split, stdenv, stm, tagsoup
-      , template-haskell, text, time, turtle, xml-conduit
+      , dom-selector, html-conduit, http-conduit, http-types, hxt-tagsoup
+      , MissingH, mtl, network, old-locale, parsec, postgresql-simple
+      , stdenv, stm, template-haskell, text, time, turtle, xml-conduit
       }:
       mkDerivation {
         pname = "train-delays";
@@ -17,10 +16,10 @@ let
         isLibrary = false;
         isExecutable = true;
         executableHaskellDepends = [
-          base bytestring containers data-default dom-selector HandsomeSoup
-          html-conduit http-conduit http-types hxt hxt-tagsoup MissingH mtl
-          network old-locale parsec postgresql-simple split stm tagsoup
-          template-haskell text time turtle xml-conduit
+          base bytestring containers data-default dom-selector html-conduit
+          http-conduit http-types hxt-tagsoup MissingH mtl network old-locale
+          parsec postgresql-simple stm template-haskell text time turtle
+          xml-conduit
         ];
         description = "Crawls the infopasazer DB and estimates train delays";
         license = stdenv.lib.licenses.gpl3;

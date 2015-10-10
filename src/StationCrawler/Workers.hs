@@ -5,15 +5,13 @@ import StationCrawler.Types
 import StationCrawler.IdManipulations
 import StationCrawler.Queuers (queueStations, queueTrains)
 import Types
-import Fetchers (getRequest, parseResponse)
+import Fetchers (getRequest)
 import TrainParsers (parseTrain)
 import StationParsers (parseStationPage)
 import Data.Text.Lazy.Encoding (decodeUtf8)
 
 import Data.Maybe
 import Network.HTTP.Conduit
-import Text.XML.HXT.Core hiding (when)
-import Text.XML.HXT.TagSoup
 import Control.Concurrent.STM
 import Control.Monad.State
 import qualified Control.Exception as X
