@@ -28,6 +28,7 @@ queryStations previousState = do
   putStrLn $ "crawl took " ++ (show $ diffUTCTime endTime startTime)
 
   let currentState = mergeStates previousState $ createState stations
+  putStrLn $ "we haz " ++ (show . L.length . M.keys $ currentState) ++ " stations in state"
   persistDelays previousState currentState
   writeFile "./station-dump" $ show $ map snd (M.toList currentState)
 
