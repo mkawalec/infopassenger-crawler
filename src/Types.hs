@@ -14,8 +14,8 @@ data Connection = Connection {
 } deriving (Show, Read, Ord, Eq)
 
 data Station = Station {
-  stationId :: Integer
-, stationName :: String
+  stationId :: !Integer
+, stationName :: !String
 , connections :: ![Connection]
 } deriving (Show, Read, Ord, Eq)
 

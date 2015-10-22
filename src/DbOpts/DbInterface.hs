@@ -4,11 +4,14 @@ import DbOpts.Types
 import DbOpts.Queries
 import DbOpts.ConnToDb
 import Types hiding (Connection)
+import Data.Maybe (isJust)
+import Data.Time.LocalTime (LocalTime)
 import qualified Types as T
 
 import Database.PostgreSQL.Simple
 import qualified Data.Map.Strict as M
 import qualified Debug.Trace as DT
+import Safe (headMay)
 
 updateConnections 
   :: Connection -> -- Db connection
@@ -16,11 +19,31 @@ updateConnections
      ([DbConnection],[(T.Connection, String)]) -> -- Stations to insert and those to update
      IO ()
 updateConnections connection stationCache (added, updated) = do
-  executeMany connection connInsertQuery added
+  addOrUpdate connection added
 
   let formattedUpdates = map (connToUpdateForm stationCache) updated
-  DT.trace ("updates " ++ (show . length $ formattedUpdates)) $ withTransaction connection (mapM (execute connection connUpdateQuery) formattedUpdates)
+  withTransaction connection (mapM (execute connection connUpdateQuery) formattedUpdates)
   return ()
+
+dbConnToExistence :: DbConnection -> (Integer, String, Maybe LocalTime, Integer)
+dbConnToExistence (delay, conn_id, train_id, arrival_time, station_id) = 
+  (conn_id, train_id, arrival_time, station_id)
+
+dbConnToUpdate :: DbConnection -> (Integer, Maybe LocalTime, Integer, Integer)
+dbConnToUpdate (delay, conn_id, train_id, arrival_time, station_id) = 
+  (delay, arrival_time, conn_id, station_id)
+
+
+addOrUpdate :: Connection -> [DbConnection] -> IO ()
+addOrUpdate dbConnection = mapM_ (\connection -> do
+    let existenceQuery = dbConnToExistence connection
+    let updateQuery = dbConnToUpdate connection
+
+    maybeConnId <- query dbConnection connExistenceQuery existenceQuery :: IO [Only Int]
+    case length maybeConnId of
+      0         -> execute dbConnection connInsertQuery connection
+      otherwise -> execute dbConnection connUpdateQuery updateQuery
+  ) 
 
 getConnections :: [Station] -> [DbStation] -> ([DbConnection], M.Map String Integer)
 getConnections stations dbStations = (foldl (mapConnections nameCache) [] stations, nameCache)

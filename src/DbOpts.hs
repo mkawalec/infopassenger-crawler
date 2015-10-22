@@ -1,4 +1,4 @@
-module DbOpts(persistDelays) where
+module DbOpts(persistDelays, getDBConnection) where
 
 import Types hiding (Connection)
 import qualified Types as T
@@ -20,9 +20,12 @@ connectionData = defaultConnectInfo {
 , connectPassword = "info"
 }
 
+getDBConnection :: IO Connection
+getDBConnection = connect connectionData
+
 persistDelays :: StationCache -> StationCache -> IO ()
 persistDelays oldState newState = do
-  connection <- connect connectionData
+  connection <- getDBConnection
 
   -- Insert new stations and connections
   stationIdCache <- addStations connection $ getAddedStations oldState newState

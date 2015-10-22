@@ -26,7 +26,7 @@ genConnection ((trainLink:_), cols) =
               timeParser = parseTimeM True defaultTimeLocale "%F %H:%M"
               connDate =  timeParser (unpack arrivalDate ++ " " ++ unpack arrivalHour)
               connId = extractId trainLink
-              trainId = unpack . strip . head $ cols
+              trainId = unpack . strip . head . (splitOn " ") . head $ cols
 genConnection _ = Nothing
 
 extractStationName :: Text -> String

@@ -10,5 +10,5 @@ mergeStates oldState newState = withOldStations
   where oldStations = map snd $ M.toList oldState
         withOldStations = foldl (\acc station -> case M.member (stationName station) acc of
           True -> acc
-          False -> M.insert (stationName station) (station { connections = [] }) acc
+          False -> M.insert (stationName station) station acc
           ) newState oldStations
