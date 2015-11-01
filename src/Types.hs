@@ -1,7 +1,6 @@
 module Types where
 
 import Data.Time.LocalTime (LocalTime)
-import Data.Time.Format (readTime, defaultTimeLocale)
 import qualified Data.Map.Strict as M
 import Database.PostgreSQL.Simple (FromRow)
 import Database.PostgreSQL.Simple.FromRow (field, fromRow)

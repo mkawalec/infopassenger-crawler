@@ -26,6 +26,8 @@ createState stations = M.fromList preprocessed
   where filteredStations = filter (\s -> (L.length . stationName $ s) > 0) stations
         preprocessed = map (\x -> (stationName x, x)) filteredStations
 
+-- |Measures the time it takes to execute a given action,
+-- then reports the results to console in a nice state
 time :: String -> IO a -> IO a
 time actionName a = do
   startTime <- getCurrentTime

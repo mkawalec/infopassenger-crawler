@@ -13,3 +13,5 @@ postgres:
     POSTGRES_DATABASE: info
   volumes_from:
     - pgdata
+  volumes:
+    - .:/data
